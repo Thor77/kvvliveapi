@@ -158,25 +158,46 @@ def _errorstring(e):
         return "unknown error"
 
 
+def cli():
+    def search_command(args):
+        stops = []
+        if args.name:
+            stops = search_by_name(args.name)
+        elif args.id:
+            stops = search_by_stop_id(args.id)
+        elif args.coordinates:
+            stops = search_by_latlon(args.coordinates[0], args.coordinates[1])
+        for stop in stops:
+            print("{} ({})".format(stop.name, stop.stop_id))
+
+    def departures_command(args):
+        departures = get_departures_by_route(args.stopid, args.route) \
+            if args.route else get_departures(args.stopid)
+        for departure in departures:
+            print(departure.pretty_format())
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    parser_search = subparsers.add_parser("search")
+    parser_search.add_argument("--name", help="stop name")
+    parser_search.add_argument("--id", help="stop id")
+    parser_search.add_argument(
+        "--coordinates", nargs=2, help="lat and lon coordinate"
+    )
+    parser_search.set_defaults(func=search_command)
+
+    parser_departures = subparsers.add_parser("departures")
+    parser_departures.add_argument(
+        "--stopid", help="id of stop", required=True
+    )
+    parser_departures.add_argument(
+        "--route", help="limit response to a route", required=False
+    )
+    parser_departures.set_defaults(func=departures_command)
+
+    args = parser.parse_args()
+    if args.func:
+        args.func(args)
+
+
 if __name__ == "__main__":
-    try:
-        if len(sys.argv) == 3 and sys.argv[1] == "search":
-            if sys.argv[2].startswith("de:"):
-                for stop in search_by_stop_id(sys.argv[2]):
-                    print(stop.name + " (" + stop.stop_id + ")")
-            else:
-                for stop in search_by_name(sys.argv[2]):
-                    print(stop.name + " (" + stop.stop_id + ")")
-        elif len(sys.argv) == 4 and sys.argv[1] == "search":
-            for stop in search_by_latlon(sys.argv[2], sys.argv[3]):
-                print(stop.name + " (" + stop.stop_id + ")")
-        elif len(sys.argv) == 3 and sys.argv[1] == "departures":
-            for dep in get_departures(sys.argv[2]):
-                print(dep.pretty_format())
-        elif len(sys.argv) == 4 and sys.argv[1] == "departures":
-            for dep in get_departures_by_route(sys.argv[2], sys.argv[3]):
-                print(dep.pretty_format())
-        else:
-            print("No such command. Try \"search <name>/<stop_id>/<lat> <lon>\" or \"departures <stop stop_id> [<route>]\"")
-    except IOError as e:
-       sys.stderr.write("{}\n".format(_errorstring(e)));
+    cli()
